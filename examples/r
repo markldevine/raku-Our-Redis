@@ -1,0 +1,21 @@
+#!/usr/bin/env raku
+
+use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
+
+use Our::Redis;
+
+#   ssh -L 127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379 jgstmgtgate1lpv.wmata.local /usr/bin/redis-cli
+
+my $key     = 'ALPHABET';
+my $value   = ('A' .. 'Z').Str;
+
+
+my $proc = run 'ssh', '-L', '127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379', 'jgstmgtgate1lpv.wmata.local', '/usr/bin/redis-cli', '-x', 'SET', $key, :in, :out;
+#die $proc.err.slurp if $proc.err;
+$proc.in.print: slurp('r.dat');
+$proc.in.close;
+#$proc.out.close;
+#$proc.err.close;
+
+
+#run 'ssh', '-L', '127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379', 'jgstmgtgate1lpv.wmata.local', '/usr/bin/redis-cli', 'GET', $key;

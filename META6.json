@@ -1,0 +1,20 @@
+{
+  "auth": "zef:markldevine",
+  "authors": [ "Mark Devine <mark@markdevine.com>" ],
+  "depends": [
+  ],
+  "description": "Our Redis - Class to interface with locally conventional Redis",
+  "license": "Artistic-2.0",
+  "meta-version": 0,
+  "name": "Our::Redis",
+  "perl": "6.*",
+  "provides": {
+    "Our::Redis": "lib/Our/Redis.rakumod"
+  },
+  "resources": [],
+  "source-url": "https://github.com/markldevine/Our-Redis.git",
+  "tags": [
+    "Redis"
+  ],
+  "version": "0.0.1"
+}
