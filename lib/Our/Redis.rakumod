@@ -15,6 +15,7 @@ has Str         $.local-server          is built;
 has Int         $.local-port            is built;
 has Str         $.remote-server         is built;
 has Int         $.remote-port           is built;
+has Bool        $.tunnel                is built;
 
 submethod TWEAK {
     my $write           = False;
@@ -24,10 +25,12 @@ submethod TWEAK {
         $!local-port    = $json<local-port>                     if $json<local-port>    && !$!local-port;
         $!remote-server = $json<remote-server>                  if $json<remote-server> && !$!remote-server;
         $!remote-port   = $json<remote-port>                    if $json<remote-port>   && !$!remote-port;
+        $!tunnel        = $json<tunnel>                         if $json<tunnel>        && !$!tunnel;
         $write          = True  if      $json<local-server>     ne $!local-server 
                                     ||  $json<local-port>       ne $!local-port
                                     ||  $json<remote-server>    ne $!remote-server
-                                    ||  $json<remote-port>      ne $!remote-port;
+                                    ||  $json<remote-port>      ne $!remote-port
+                                    ||  $json<tunnel>           ne $!tunnel;
     }
     else {
         $write          = True;
@@ -42,6 +45,7 @@ submethod TWEAK {
                                                 :$!local-port,
                                                 :$!remote-server,
                                                 :$!remote-port,
+                                                :$!tunnel,
                                             })
         ) or die;
     }
@@ -50,25 +54,24 @@ submethod TWEAK {
 method !build-connect-prefix {
     @!connect-prefix        = ();
     @!connect-prefix.push:      '/bin/ssh';
-    if $!local-server eq $local-server-default {
-        @!connect-prefix.push:  '-h', $!remote-server, '-p', $!remote-port;
+    if self.tunnel {
+        @!connect-prefix.push:  '-L', $!local-server ~ ':' ~ $!local-port.Str ~ ':' ~ $!remote-server ~ ':' ~ $!remote-port.Str, $!remote-server;
     }
     else {
-        @!connect-prefix.push:  '-L', $!local-server ~ ':' ~ $!local-port ~ ':' ~ $!remote-server ~ ':' ~ $!remote-port, $!remote-server;
+        @!connect-prefix.push:  '-h', $!remote-server, '-p', $!remote-port.Str;
     }
     @!connect-prefix.push:      '/usr/bin/redis-cli';
-die @!connect-prefix;
 }
 
-method GET (Str:D :$key, Str:D :$value) {
+method GET (Str:D :$key) {
     self!build-connect-prefix unless @!connect-prefix.elems;
     my $proc = run @!connect-prefix, 'GET', $key, :out;
-    return $proc.out.eager;
+    return $proc.out.lines;
 }
 
 multi method SET (Str:D :$key, Str:D :$value) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"';
+    my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"', :out;
 }
 
 multi method SET (Str:D :$key, Str:D :$path where *.IO ~~ :s) {
@@ -78,15 +81,9 @@ multi method SET (Str:D :$key, Str:D :$path where *.IO ~~ :s) {
     $proc.in.close;
 }
 
-method EXPIREAT (Str:D :$key, Int:D :$epoch-seconds) {
-    my $epoch   = $epoch-seconds;
-    my $current-epoch-plus-one-year = DateTime.now.posix.Int + (366 * 24 * 60 * 60);
-    if $epoch > $current-epoch-plus-one-year {
-        note 'Truncating EXPIREAT to 1 year';
-        $epoch  = $current-epoch-plus-one-year;
-    }
+method EXPIRE (Str:D :$key, Int:D :$seconds) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    run @!connect-prefix, 'EXPIREAT', $key, $epoch, 'NX';
+    run @!connect-prefix, 'EXPIRE', $key, $seconds, :out;
 }
 
 =finish

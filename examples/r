@@ -4,23 +4,14 @@ use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
 
 use Our::Redis;
 
-#my Our::Redis $redis-cli .= new;
-my Our::Redis $redis-cli .= new: :remote-server<jgstmgtgate1lpv.wmata.local>;
+#my Our::Redis $redis-cli .= new: :tunnel;
+my Our::Redis $redis-cli .= new: :remote-server<jgstmgtgate1lpv.wmata.local>, :tunnel;
 
-=finish
-
-#   ssh -L 127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379 jgstmgtgate1lpv.wmata.local /usr/bin/redis-cli
-
-my $key     = 'ALPHABET';
+my $key     = 'Test';
 my $value   = ('A' .. 'Z').Str;
 
+$redis-cli.SET(:$key, :$value);
+$redis-cli.EXPIRE(:$key, :seconds(10));
+put $redis-cli.GET(:$key);
 
-my $proc = run 'ssh', '-L', '127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379', 'jgstmgtgate1lpv.wmata.local', '/usr/bin/redis-cli', '-x', 'SET', $key, :in, :out;
-#die $proc.err.slurp if $proc.err;
-$proc.in.print: slurp('r.dat');
-$proc.in.close;
-#$proc.out.close;
-#$proc.err.close;
-
-
-#run 'ssh', '-L', '127.0.0.1:6379:jgstmgtgate1lpv.wmata.local:6379', 'jgstmgtgate1lpv.wmata.local', '/usr/bin/redis-cli', 'GET', $key;
+=finish
