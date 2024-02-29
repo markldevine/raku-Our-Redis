@@ -1,5 +1,21 @@
 unit class Our::Redis:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
+#   Can't use Redis::Async in all corporate environments due to
+#   networking/security constraints.  SSH tunneling is required
+#   to solve this, but SSH::LibSSH::Tunnel is NYI.  As a fall
+#   back, run /usr/bin/redis-cli through SSH for remotes:
+#
+#       `/bin/ssh -L lp:rs:rp rs /usr/bin/redis-cli`
+#
+#   The next problem is that SETting any $value > ~200KB in
+#   memory bombs.  This Class will spurt it down to a temp file,
+#   then:
+#
+#       $proc.in.slurp($path) # | /usr/bin/redis-cli -x SET $key
+#
+#   All Proc's of /usr/bin/redis-cli are running error-free now.
+
+use Data::Dump::Tree;
 use JSON::Fast;
 use Our::Cache;
 
@@ -16,7 +32,7 @@ has Int         $.redis-port            is built;
 has Bool        $.tunnel                is built;
 
 submethod TWEAK {
-    my $redis-servers-file-name = cache-file-name(:meta<redis-servers>);
+    my $redis-servers-file-name = cache-file-name(:meta('redis-servers'));
     my $write           = False;
     if $redis-servers-file-name.IO ~~ :e {
         my $json        = from-json(cache(:cache-file-name($redis-servers-file-name)));
@@ -58,7 +74,7 @@ method !build-connect-prefix {
                                 '/usr/bin/redis-cli';
     }
     else {
-        @!connect-prefix.push:  '/usr/bin/redis-cli', '--raw', '-h', $!redis-server, '-p', $!redis-port.Str;
+        @!connect-prefix.push:  '/usr/bin/redis-cli', '-h', $!redis-server, '-p', $!redis-port.Str;
     }
 }
 
@@ -71,17 +87,18 @@ method GET (Str:D :$key) {
     return $value;
 }
 
-multi method SET (Str:D :$key, Str:D :$value) {
+method SET (Str:D :$key, Str:D :$value) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-#   my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"', :out;
-    run @!connect-prefix, 'SET', $key, $value;
-}
-
-multi method SET (Str:D :$key, Str:D :$path) {
-    self!build-connect-prefix unless @!connect-prefix.elems;
-    my $proc = run @!connect-prefix, '-x', 'SET', $key, :in, :out;
-    $proc.in.slurp($path, :close);
+    my @command = @!connect-prefix;
+    my $meta    = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
+    my $cache-file-name = cache-file-name(:$meta);
+    cache(:$cache-file-name, :data($value));
+    @command.push: '-x', 'SET', $key;
+    my $proc    = run @command, :in, :out;
+    $proc.in.spurt(slurp($cache-file-name));
     $proc.in.close;
+    unlink($cache-file-name) or die;
+    return $proc.exitcode;
 }
 
 method EXPIRE (Str:D :$key, Int:D :$seconds) {
