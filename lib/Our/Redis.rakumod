@@ -1,8 +1,6 @@
 unit class Our::Redis:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
-use Data::Dump::Tree;
 use JSON::Fast;
-#use Redis::Async
 
 constant $local-server-default                      = '127.0.0.1';
 constant $local-port-default                        = 6379;

@@ -2,6 +2,7 @@
   "auth": "zef:markldevine",
   "authors": [ "Mark Devine <mark@markdevine.com>" ],
   "depends": [
+    "JSON::Fast"
   ],
   "description": "Our Redis - Class to interface with locally conventional Redis",
   "license": "Artistic-2.0",
