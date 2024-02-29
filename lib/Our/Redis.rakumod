@@ -7,7 +7,7 @@ constant $local-port-default                        = 6379;
 constant $redis-server-default                      = '127.0.0.1';
 constant $redis-port-default                        = 6379;
 
-has IO::Path    $.redis-servers-file    is built    = $*HOME.add('.our-redis.json');
+has IO::Path    $.redis-servers-file    is built    = $*HOME.add('.rakucache/' ~ $*PROGRAM.basename ~ '/.our-redis.json');
 has Str         @!connect-prefix;
 has Str         $.local-server          is built;
 has Int         $.local-port            is built;
