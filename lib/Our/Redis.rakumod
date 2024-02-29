@@ -55,8 +55,7 @@ method !build-connect-prefix {
                                 '-L',
                                 $!local-server ~ ':' ~ $!local-port.Str ~ ':' ~ $!redis-server ~ ':' ~ $!redis-port.Str,
                                 $!redis-server,
-                                '/usr/bin/redis-cli',
-                                '--raw';
+                                '/usr/bin/redis-cli';
     }
     else {
         @!connect-prefix.push:  '/usr/bin/redis-cli', '--raw', '-h', $!redis-server, '-p', $!redis-port.Str;
@@ -65,8 +64,8 @@ method !build-connect-prefix {
 
 method GET (Str:D :$key) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    my $proc    = run @!connect-prefix, 'GET', $key, :out;
-    my $value   = $proc.out.lines.Str;
+    my $proc    = run @!connect-prefix, '--raw', 'GET', $key, :out;
+    my $value   = $proc.out.slurp(:close);
     $value     ~~ s/ ^ '"' //;
     $value     ~~ s/ '"' $ //;
     return $value;
@@ -74,13 +73,14 @@ method GET (Str:D :$key) {
 
 multi method SET (Str:D :$key, Str:D :$value) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"', :out;
+#   my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"', :out;
+    run @!connect-prefix, 'SET', $key, $value;
 }
 
 multi method SET (Str:D :$key, Str:D :$path) {
     self!build-connect-prefix unless @!connect-prefix.elems;
     my $proc = run @!connect-prefix, '-x', 'SET', $key, :in, :out;
-    $proc.in.print: slurp($path);
+    $proc.in.slurp($path, :close);
     $proc.in.close;
 }
 
