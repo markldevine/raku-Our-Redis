@@ -4,8 +4,9 @@ use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
 
 use Our::Redis;
 
+my Our::Redis $redis-cli .= new;
 #my Our::Redis $redis-cli .= new: :tunnel;
-my Our::Redis $redis-cli .= new: :remote-server<jgstmgtgate1lpv.wmata.local>, :tunnel;
+#my Our::Redis $redis-cli .= new: :remote-server<jgstmgtgate1lpv.wmata.local>, :tunnel;
 
 my $key     = 'Test';
 my $value   = ('A' .. 'Z').Str;
