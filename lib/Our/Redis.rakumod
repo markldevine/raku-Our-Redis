@@ -23,14 +23,20 @@ submethod TWEAK {
         my $json        = from-json(slurp($!redis-servers-file));
         $!local-server  = $json<local-server>                   if $json<local-server>  && !$!local-server;
         $!local-port    = $json<local-port>                     if $json<local-port>    && !$!local-port;
-        $!redis-server  = $json<redis-server>                   if $json<redis-server> && !$!redis-server;
-        $!redis-port    = $json<redis-port>                     if $json<redis-port>   && !$!redis-port;
-        $!tunnel        = $json<tunnel>                         if $json<tunnel>        && !$!tunnel;
+        $!redis-server  = $json<redis-server>                   if $json<redis-server>  && !$!redis-server;
+        $!redis-port    = $json<redis-port>                     if $json<redis-port>    && !$!redis-port;
+        without $!tunnel {
+            if $json<tunnel> {
+                $!tunnel = $json<tunnel>;
+            }
+            else {
+                $!tunnel = False;
+            }
+        }
         $write          = True  if      $json<local-server>     ne $!local-server 
                                     ||  $json<local-port>       ne $!local-port
                                     ||  $json<redis-server>     ne $!redis-server
-                                    ||  $json<redis-port>       ne $!redis-port
-                                    ||  $json<tunnel>           ne $!tunnel;
+                                    ||  $json<redis-port>       ne $!redis-port;
     }
     else {
         $write          = True;
@@ -59,16 +65,20 @@ method !build-connect-prefix {
                                 $!local-server ~ ':' ~ $!local-port.Str ~ ':' ~ $!redis-server ~ ':' ~ $!redis-port.Str,
                                 $!redis-server,
                                 '/usr/bin/redis-cli',
+                                '--raw';
     }
     else {
-        @!connect-prefix.push:  '/usr/bin/redis-cli', '-h', $!redis-server, '-p', $!redis-port.Str;
+        @!connect-prefix.push:  '/usr/bin/redis-cli', '--raw', '-h', $!redis-server, '-p', $!redis-port.Str;
     }
 }
 
 method GET (Str:D :$key) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    my $proc = run @!connect-prefix, 'GET', $key, :out;
-    return $proc.out.lines;
+    my $proc    = run @!connect-prefix, 'GET', $key, :out;
+    my $value   = $proc.out.lines.Str;
+    $value     ~~ s/ ^ '"' //;
+    $value     ~~ s/ '"' $ //;
+    return $value;
 }
 
 multi method SET (Str:D :$key, Str:D :$value) {
@@ -76,7 +86,7 @@ multi method SET (Str:D :$key, Str:D :$value) {
     my $proc = run @!connect-prefix, 'SET', $key, '"' ~ $value ~ '"', :out;
 }
 
-multi method SET (Str:D :$key, Str:D :$path where *.IO ~~ :s) {
+multi method SET (Str:D :$key, Str:D :$path) {
     self!build-connect-prefix unless @!connect-prefix.elems;
     my $proc = run @!connect-prefix, '-x', 'SET', $key, :in, :out;
     $proc.in.print: slurp($path);
