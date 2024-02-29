@@ -18,6 +18,8 @@ $redis-cli.SET(:$key, :$value);
 my $text = $redis-cli.GET(:$key);
 put '|' ~ $text ~ '|';
 
+=finish
+
 $key        = 'Path';
 $redis-cli.SET(:$key, :path('/home/mdevine/github.com/raku-Our-Redis/examples/r.dat'));
 #$redis-cli.EXPIRE(:$key, :seconds(30));

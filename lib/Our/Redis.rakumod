@@ -1,13 +1,13 @@
 unit class Our::Redis:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 
 use JSON::Fast;
+use Our::Cache;
 
-constant $local-server-default                      = '127.0.0.1';
-constant $local-port-default                        = 6379;
-constant $redis-server-default                      = '127.0.0.1';
-constant $redis-port-default                        = 6379;
+constant        $local-server-default               = '127.0.0.1';
+constant        $local-port-default                 = 6379;
+constant        $redis-server-default               = '127.0.0.1';
+constant        $redis-port-default                 = 6379;
 
-has IO::Path    $.redis-servers-file    is built    = $*HOME.add('.rakucache/' ~ $*PROGRAM.basename ~ '/.our-redis.json');
 has Str         @!connect-prefix;
 has Str         $.local-server          is built;
 has Int         $.local-port            is built;
@@ -16,9 +16,10 @@ has Int         $.redis-port            is built;
 has Bool        $.tunnel                is built;
 
 submethod TWEAK {
+    my $redis-servers-file-name = cache-file-name(:meta<redis-servers>);
     my $write           = False;
-    if $!redis-servers-file.IO ~~ :e {
-        my $json        = from-json(slurp($!redis-servers-file));
+    if $redis-servers-file-name.IO ~~ :e {
+        my $json        = from-json(cache(:cache-file-name($redis-servers-file-name)));
         $!local-server  = $json<local-server>                   if $json<local-server>  && !$!local-server;
         $!local-port    = $json<local-port>                     if $json<local-port>    && !$!local-port;
         $!redis-server  = $json<redis-server>                   if $json<redis-server>  && !$!redis-server;
@@ -43,16 +44,8 @@ submethod TWEAK {
     $!local-port        = $local-port-default                   without $!local-port;
     $!redis-server      = $redis-server-default                 without $!redis-server;
     $!redis-port        = $redis-port-default                   without $!redis-port;
-    if $write {
-        spurt($!redis-servers-file, to-json({
-                                                :$!local-server,
-                                                :$!local-port,
-                                                :$!redis-server,
-                                                :$!redis-port,
-                                                :$!tunnel,
-                                            })
-        ) or die;
-    }
+    $!tunnel            = False                                 without $!tunnel;
+    cache(:cache-file-name($redis-servers-file-name), :data(to-json({:$!local-server, :$!local-port, :$!redis-server, :$!redis-port, :$!tunnel}))) if $write;
 }
 
 method !build-connect-prefix {
