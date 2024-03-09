@@ -15,7 +15,6 @@ unit class Our::Redis:api<1>:auth<Mark Devine (mark@markdevine.com)>;
 #
 #   All Proc's of /usr/bin/redis-cli are running error-free now.
 
-use Data::Dump::Tree;
 use JSON::Fast;
 use Our::Cache;
 
@@ -32,6 +31,12 @@ has Int         $.redis-port            is built;
 has Bool        $.tunnel                is built;
 
 submethod TWEAK {
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#  change this to ~/.rakucache/redis-servers, organized by remote server/port  #
+#  - other scripts will be able to use the definitions as defaults             #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
     my $redis-servers-file-name = cache-file-name(:meta('redis-servers'));
     my $write           = False;
     if $redis-servers-file-name.IO ~~ :e {
