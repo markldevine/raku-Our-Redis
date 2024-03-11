@@ -73,10 +73,14 @@ method !build-connect-prefix {
     @!connect-prefix        = ();
     if self.tunnel {
         @!connect-prefix.push:  '/bin/ssh',
-                                '-L',
-                                $!local-server ~ ':' ~ $!local-port.Str ~ ':' ~ $!redis-server ~ ':' ~ $!redis-port.Str,
+#                               '-L',
+#                               $!local-server ~ ':' ~ $!local-port.Str ~ ':' ~ $!redis-server ~ ':' ~ $!redis-port.Str,
                                 $!redis-server,
-                                '/usr/bin/redis-cli';
+                                '/usr/bin/redis-cli',
+                                '-h',
+                                '127.0.0.1',
+                                '-p',
+                                $!redis-port.Str;
     }
     else {
         @!connect-prefix.push:  '/usr/bin/redis-cli', '-h', $!redis-server, '-p', $!redis-port.Str;
