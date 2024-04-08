@@ -24,11 +24,11 @@ constant        $redis-server-default               = '127.0.0.1';
 constant        $redis-port-default                 = 6379;
 
 has Str         @!connect-prefix;
-has Str         $.local-server          is built;
-has Int         $.local-port            is built;
-has Str         $.redis-server          is built;
-has Int         $.redis-port            is built;
-has Bool        $.tunnel                is built;
+has Str         $.local-server;         #is built;
+has Int         $.local-port;           #is built;
+has Str         $.redis-server;         #is built;
+has Int         $.redis-port;           #is built;
+has Bool        $.tunnel;               #is built;
 
 submethod TWEAK {
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -87,13 +87,42 @@ method !build-connect-prefix {
     }
 }
 
+method KEYS (Str:D $string = '*') {
+    self!build-connect-prefix unless @!connect-prefix.elems;
+    my $proc    = run @!connect-prefix, '--raw', 'KEYS', $string, :out;
+    my $value   = $proc.out.slurp(:close).chomp;
+    $value      = $value.substr(1) if $value.starts-with('"');
+    $value      = $value.chop if $value.ends-with('"');
+    my @keys    = $value.split("\n");
+    return @keys;
+}
+
 method GET (Str:D :$key) {
     self!build-connect-prefix unless @!connect-prefix.elems;
     my $proc    = run @!connect-prefix, '--raw', 'GET', $key, :out;
-    my $value   = $proc.out.slurp(:close);
-    $value     ~~ s/ ^ '"' //;
-    $value     ~~ s/ '"' $ //;
+    my $value   = $proc.out.slurp(:close).chomp;
+    $value      = $value.substr(1) if $value.starts-with('"');
+    $value      = $value.chop if $value.ends-with('"');
     return $value;
+}
+
+method SMEMBERS (Str:D :$key) {
+    self!build-connect-prefix unless @!connect-prefix.elems;
+    my $proc    = run @!connect-prefix, '--raw', 'SMEMBERS', $key, :out;
+    my $value   = $proc.out.slurp(:close).chomp;
+    $value      = $value.substr(1) if $value.starts-with('"');
+    $value      = $value.chop if $value.ends-with('"');
+    return $value;
+}
+
+method SUNION (:@keys) {
+    self!build-connect-prefix unless @!connect-prefix.elems;
+    my $proc    = run @!connect-prefix, '--raw', 'SUNION', @keys.join(' '), :out;
+    my $value   = $proc.out.slurp(:close).chomp;
+    $value      = $value.substr(1) if $value.starts-with('"');
+    $value      = $value.chop if $value.ends-with('"');
+    my @values  = $value.split("\n");
+    return @values;
 }
 
 method SET (Str:D :$key, Str:D :$value) {
@@ -103,6 +132,20 @@ method SET (Str:D :$key, Str:D :$value) {
     my $cache-file-name = cache-file-name(:$meta);
     cache(:$cache-file-name, :data($value));
     @command.push: '-x', 'SET', $key;
+    my $proc    = run @command, :in, :out;
+    $proc.in.spurt(slurp($cache-file-name));
+    $proc.in.close;
+    unlink($cache-file-name) or die;
+    return $proc.exitcode;
+}
+
+method SADD (Str:D :$key, Str:D :$value) {
+    self!build-connect-prefix unless @!connect-prefix.elems;
+    my @command = @!connect-prefix;
+    my $meta    = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
+    my $cache-file-name = cache-file-name(:$meta);
+    cache(:$cache-file-name, :data($value));
+    @command.push: '-x', 'SADD', $key;
     my $proc    = run @command, :in, :out;
     $proc.in.spurt(slurp($cache-file-name));
     $proc.in.close;
