@@ -4,19 +4,15 @@ use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
 
 use Our::Redis;
 
-my Our::Redis $redis-cli .= new;
-#my Our::Redis $redis-cli .= new: :tunnel;
-#my Our::Redis $redis-cli .= new: :remote-server<jgstmgtgate1lpv.wmata.local>, :tunnel;
+my Our::Redis $redis-cli;
 
-my $key     = 'String';
-my $value   = ('A' .. 'Z').Str;
-
-put '|' ~ $value ~ '|';
-
-$redis-cli.SET(:$key, :$value);
-#$redis-cli.EXPIRE(:$key, :seconds(30));
-my $text = $redis-cli.GET(:$key);
-put '|' ~ $text ~ '|';
+sub MAIN (Str :$redis-server?) {
+    $redis-cli .= new: :$redis-server, :tunnel;
+    my $key     = 'Test_String';
+    my $value   = ('A' .. 'Z').Str;                                                     put '|' ~ $value ~ '|';
+    $redis-cli.SET(:$key, :$value);
+    $redis-cli.EXPIRE(:$key, :seconds(30));                                             put '|' ~ $redis-cli.GET(:$key) ~ '|';
+}
 
 =finish
 
