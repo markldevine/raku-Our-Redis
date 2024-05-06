@@ -30,43 +30,40 @@ has Str         $.redis-server          is built;
 has Int         $.redis-port            is built;
 has Bool        $.tunnel                is built;
 
+has Our::Cache  $!cache-manager;
+
 submethod TWEAK {
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-#  change this to ~/.rakucache/redis-servers, organized by remote server/port  #
-#  - other scripts will be able to use the definitions as defaults             #
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
-    my $redis-servers-file-name = cache-file-name(:meta('redis-servers'));
-    my $write           = False;
-    if $redis-servers-file-name.IO ~~ :e {
-        my $json        = from-json(cache(:cache-file-name($redis-servers-file-name)));
-        $!local-server  = $json<local-server>                   if $json<local-server>  && !$!local-server;
-        $!local-port    = $json<local-port>                     if $json<local-port>    && !$!local-port;
-        $!redis-server  = $json<redis-server>                   if $json<redis-server>  && !$!redis-server;
-        $!redis-port    = $json<redis-port>                     if $json<redis-port>    && !$!redis-port;
+    my $redis-servers-cache     = Our::Cache.new(:subdir<redis-servers>);
+    my $write                   = False;
+    if $redis-servers-cache.cache-will-hit(:identifier<inventory>) {
+        my $json                = from-json($redis-servers-cache.fetch(:identifier<inventory>));
+        $!local-server          = $json<local-server>                   if $json<local-server>  && !$!local-server;
+        $!local-port            = $json<local-port>                     if $json<local-port>    && !$!local-port;
+        $!redis-server          = $json<redis-server>                   if $json<redis-server>  && !$!redis-server;
+        $!redis-port            = $json<redis-port>                     if $json<redis-port>    && !$!redis-port;
         without $!tunnel {
             if $json<tunnel> {
-                $!tunnel = $json<tunnel>;
+                $!tunnel        = $json<tunnel>;
             }
             else {
-                $!tunnel = False;
+                $!tunnel        = False;
             }
         }
-        $write          = True  if      $json<local-server>     ne $!local-server 
-                                    ||  $json<local-port>       ne $!local-port
-                                    ||  $json<redis-server>     ne $!redis-server
-                                    ||  $json<redis-port>       ne $!redis-port;
+        $write                  = True  if      $json<local-server>     ne $!local-server 
+                                            ||  $json<local-port>       ne $!local-port
+                                            ||  $json<redis-server>     ne $!redis-server
+                                            ||  $json<redis-port>       ne $!redis-port;
     }
     else {
-        $write          = True;
+        $write                  = True;
     }
-    $!local-server      = $local-server-default                 without $!local-server;
-    $!local-port        = $local-port-default                   without $!local-port;
-    $!redis-server      = $redis-server-default                 without $!redis-server;
-    $!redis-port        = $redis-port-default                   without $!redis-port;
-    $!tunnel            = False                                 without $!tunnel;
-    cache(:cache-file-name($redis-servers-file-name), :data(to-json({:$!local-server, :$!local-port, :$!redis-server, :$!redis-port, :$!tunnel}))) if $write;
+    $!local-server              = $local-server-default                 without $!local-server;
+    $!local-port                = $local-port-default                   without $!local-port;
+    $!redis-server              = $redis-server-default                 without $!redis-server;
+    $!redis-port                = $redis-port-default                   without $!redis-port;
+    $!tunnel                    = False                                 without $!tunnel;
+    $redis-servers-cache.store(:identifier<inventory>, :data(to-json({:$!local-server, :$!local-port, :$!redis-server, :$!redis-port, :$!tunnel}))) if $write;
+    $!cache-manager            .= new;
 }
 
 method !build-connect-prefix {
@@ -98,15 +95,14 @@ method GET (Str:D :$key) {
 
 method SET (Str:D :$key, Str:D :$value) {
     self!build-connect-prefix unless @!connect-prefix.elems;
-    my @command = @!connect-prefix;
-    my $meta    = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
-    my $cache-file-name = cache-file-name(:$meta);
-    cache(:$cache-file-name, :data($value));
+    my @command     = @!connect-prefix;
+    my $identifier  = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
+    $!cache-manager.store(:$identifier, :data($value));
     @command.push: '-x', 'SET', $key;
     my $proc    = run @command, :in, :out;
-    $proc.in.spurt(slurp($cache-file-name));
+    $proc.in.spurt(slurp($!cache-manager.cache-file-path));
     $proc.in.close;
-    unlink($cache-file-name) or die;
+    $!cache-manager.expire-now(:$identifier);
     return $proc.exitcode;
 }
 
