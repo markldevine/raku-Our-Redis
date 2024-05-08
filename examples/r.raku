@@ -11,7 +11,7 @@ sub MAIN (Str :$redis-server?) {
     my $key     = 'Test_String';
     my $value   = ('A' .. 'Z').Str;                                                     put '|' ~ $value ~ '|';
     $redis-cli.SET(:$key, :$value);
-    $redis-cli.EXPIRE(:$key, :seconds(30));                                             put '|' ~ $redis-cli.GET(:$key) ~ '|';
+    $redis-cli.EXPIRE(:$key, :seconds(30));                                             put '|' ~ $redis-cli.GET(:$key).chomp ~ '|';
 }
 
 =finish

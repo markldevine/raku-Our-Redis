@@ -35,7 +35,8 @@ has Our::Cache  $!cache-manager;
 submethod TWEAK {
     my $redis-servers-cache     = Our::Cache.new(:subdir<redis-servers>);
     my $write                   = False;
-    if $redis-servers-cache.cache-will-hit(:identifier<inventory>) {
+    $redis-servers-cache.set-identifier(:identifier<inventory>);
+    if $redis-servers-cache.cache-hit {
         my $json                = from-json($redis-servers-cache.fetch(:identifier<inventory>));
         $!local-server          = $json<local-server>                   if $json<local-server>  && !$!local-server;
         $!local-port            = $json<local-port>                     if $json<local-port>    && !$!local-port;
@@ -100,7 +101,7 @@ method SET (Str:D :$key, Str:D :$value) {
     $!cache-manager.store(:$identifier, :data($value));
     @command.push: '-x', 'SET', $key;
     my $proc    = run @command, :in, :out;
-    $proc.in.spurt(slurp($!cache-manager.cache-file-path));
+    $proc.in.spurt($!cache-manager.fetch(:$identifier));
     $proc.in.close;
     $!cache-manager.expire-now(:$identifier);
     return $proc.exitcode;
