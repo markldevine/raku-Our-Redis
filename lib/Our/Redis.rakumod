@@ -30,14 +30,11 @@ has Str         $.redis-server          is built;
 has Int         $.redis-port            is built;
 has Bool        $.tunnel                is built;
 
-has Our::Cache  $!cache-manager;
-
 submethod TWEAK {
-    my $redis-servers-cache     = Our::Cache.new(:identifier<redis>, :subdirs('redis-servers',));
+    my $redis-servers-cache     = Our::Cache.new(:identifier<inventory>, :subdirs($*PROGRAM-NAME.IO.basename, 'redis'));
     my $write                   = False;
-    $redis-servers-cache.set-identifier(:identifier<inventory>);
     if $redis-servers-cache.cache-hit {
-        my $json                = from-json($redis-servers-cache.fetch(:identifier<inventory>));
+        my $json                = from-json($redis-servers-cache.fetch);
         $!local-server          = $json<local-server>                   if $json<local-server>  && !$!local-server;
         $!local-port            = $json<local-port>                     if $json<local-port>    && !$!local-port;
         $!redis-server          = $json<redis-server>                   if $json<redis-server>  && !$!redis-server;
@@ -63,8 +60,7 @@ submethod TWEAK {
     $!redis-server              = $redis-server-default                 without $!redis-server;
     $!redis-port                = $redis-port-default                   without $!redis-port;
     $!tunnel                    = False                                 without $!tunnel;
-    $redis-servers-cache.store(:identifier<inventory>, :data(to-json({:$!local-server, :$!local-port, :$!redis-server, :$!redis-port, :$!tunnel}))) if $write;
-    $!cache-manager            .= new;
+    $redis-servers-cache.store(:data(to-json({:$!local-server, :$!local-port, :$!redis-server, :$!redis-port, :$!tunnel}))) if $write;
 }
 
 method !build-connect-prefix {
@@ -98,12 +94,12 @@ method SET (Str:D :$key, Str:D :$value) {
     self!build-connect-prefix unless @!connect-prefix.elems;
     my @command     = @!connect-prefix;
     my $identifier  = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
-    $!cache-manager.store(:$identifier, :data($value));
+    my $cache       = Our::Cache.new(:$identifier, :subdirs($*PROGRAM-NAME.IO.basename, 'redis'));
+    $cache.store(:data($value), :expire-after(now + 60));
     @command.push: '-x', 'SET', $key;
     my $proc    = run @command, :in, :out;
-    $proc.in.spurt($!cache-manager.fetch(:$identifier));
+    $proc.in.spurt: $cache.fetch;
     $proc.in.close;
-    $!cache-manager.expire-now(:$identifier);
     return $proc.exitcode;
 }
 
