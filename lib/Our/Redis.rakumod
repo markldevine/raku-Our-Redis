@@ -33,7 +33,7 @@ has Bool        $.tunnel                is built;
 has Our::Cache  $!cache-manager;
 
 submethod TWEAK {
-    my $redis-servers-cache     = Our::Cache.new(:subdirs('redis-servers',));
+    my $redis-servers-cache     = Our::Cache.new(:identifier<redis>, :subdirs('redis-servers',));
     my $write                   = False;
     $redis-servers-cache.set-identifier(:identifier<inventory>);
     if $redis-servers-cache.cache-hit {

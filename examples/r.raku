@@ -1,12 +1,12 @@
 #!/usr/bin/env raku
 
-use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
+#use lib '/home/mdevine/github.com/raku-Our-Redis/lib';
 
 use Our::Redis;
 
 my Our::Redis $redis-cli;
 
-sub MAIN (Str :$redis-server?) {
+sub MAIN (Str :$redis-server!) {
     $redis-cli .= new: :$redis-server, :tunnel;
     my $key     = 'Test_String';
     my $value   = ('A' .. 'Z').Str;                                                     put '|' ~ $value ~ '|';
