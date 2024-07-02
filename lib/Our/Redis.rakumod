@@ -95,7 +95,7 @@ method SET (Str:D :$key, Str:D :$value) {
     my @command     = @!connect-prefix;
     my $identifier  = $key ~ '_' ~ sprintf("%09d", $*PID) ~ '_' ~ DateTime.now.posix(:real);
     my $cache       = Our::Cache.new(:$identifier, :subdirs($*PROGRAM-NAME.IO.basename, 'redis'));
-    $cache.store(:data($value), :expire-after(now + 60));
+    $cache.store(:data($value), :expire-after((now + 60).DateTime));
     @command.push: '-x', 'SET', $key;
     my $proc    = run @command, :in, :out;
     $proc.in.spurt: $cache.fetch;
